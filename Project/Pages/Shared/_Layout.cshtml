@@ -1,0 +1,24 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - To Do List </title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body>
+    <div class="header">
+        <h1><a> To Do List Schedule Task</a></h1>
+
+    </div>
+    
+    <div class="main">
+        @RenderBody()
+    </div>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+<icon typeof="icon icon"

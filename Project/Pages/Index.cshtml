@@ -1,0 +1,216 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Özer Atar";
+}
+
+<script src="~/lib/daypilot/daypilot-all.min.js" asp-append-version="true"></script>
+
+<div class="main" style="display: flex;">
+    <div style="">
+        <div id="nav"></div>
+    </div>
+    <div style="flex-grow: 1; margin-left: 10px;">
+        <div class="navi">
+            <button id="previous">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+                    <use href="icons/daypilot.svg#minichevron-left-2"></use>
+                </svg>
+            </button>
+            <button id="today" class="highlighted">Bugün</button>
+            <button id="next">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+                    <use href="icons/daypilot.svg#minichevron-right-2"></use>
+                </svg>
+            </button>
+        </div>
+        <div id="dp"></div>
+    </div>
+</div>
+
+
+<script>
+    // Navigator
+    const datePicker = new DayPilot.Navigator("nav", {
+        showMonths: 3,
+        skipMonths: 3,
+        selectMode: "Month",
+        onTimeRangeSelected: args => {
+            calendar.startDate = args.day;
+            calendar.update();
+            calendar.events.load("/api/events");
+        }
+    });
+    datePicker.init();
+
+    // Calendar
+    const calendar = new DayPilot.Calendar("dp", {
+        viewType: "Week",
+        eventHeight: 30,
+        onTimeRangeSelected: async args => {
+            const modal = await DayPilot.Modal.prompt("Yeni bir etkinlik oluştur:", "Etkinlik");
+
+            calendar.clearSelection();
+            if (modal.canceled) {
+                return;
+            }
+            const params = {
+                start: args.start,
+                end: args.end,
+                text: modal.result,
+                resource: args.resource,
+                color: "#ff0000" // Set your default color here (e.g., #ff0000 for red)
+            };
+            const { data } = await DayPilot.Http.post("/api/events", params);
+            calendar.events.add(data);
+        },
+        onEventMove: async args => {
+            const params = {
+                id: args.e.id(),
+                start: args.newStart,
+                end: args.newEnd
+            };
+            const { data } = await DayPilot.Http.put(`/api/events/${args.e.id()}/move`, params);
+        },
+        onEventResize: async args => {
+            const params = {
+                id: args.e.id(),
+                start: args.newStart,
+                end: args.newEnd
+            };
+            const { data } = await DayPilot.Http.put(`/api/events/${args.e.id()}/move`, params);
+        },
+        onBeforeEventRender: args => {
+            args.data.barColor = args.data.color; // Keep the bar color for the mini chevron
+            args.data.areas = [
+                {
+                    top: 4,
+                    right: 4,
+                    width: 16,
+                    height: 16,
+                    symbol: "icons/daypilot.svg#minichevron-down-2",
+                    visibility: "Hover",
+                    action: "ContextMenu",
+                    style: "background-color: #f9f9f9; border: 1px solid #ccc; padding: 2px; border-radius: 15px; cursor:pointer;"
+                }
+            ];
+            // Set the background color of the event box
+            args.data.backColor = args.data.color;
+            args.data.borderColor = args.data.color;
+            args.data.fontColor = "#ffffff"; // Set the font color to white for better visibility on colored backgrounds
+        },
+        contextMenu: new DayPilot.Menu({
+            items: [
+                {
+                    text: "Sil",
+                    onClick: async args => {
+                        const e = args.source;
+                        const id = e.id();
+                        await DayPilot.Http.delete(`/api/events/${id}`);
+                        calendar.events.remove(e.id());
+                    }
+                },
+                {
+                    text: "-"
+                },
+                {
+                    text: "Mavi",
+                    icon: "icon icon-blue",
+                    color: "#1066a8",
+                    onClick: (args) => { app.updateColor(args.source, args.item.color); }
+                },
+                {
+                    text: "Yeşil",
+                    icon: "icon icon-green",
+                    color: "#6aa84f",
+                    onClick: (args) => { app.updateColor(args.source, args.item.color); }
+                },
+                {
+                    text: "Sarı",
+                    icon: "icon icon-yellow",
+                    color: "#f1c232",
+                    onClick: (args) => { app.updateColor(args.source, args.item.color); }
+                },
+                {
+                    text: "Kırmızı",
+                    icon: "icon icon-red",
+                    color: "#cc0000",
+                    onClick: (args) => { app.updateColor(args.source, args.item.color); }
+                },
+                {
+                    text: "Turuncu",
+                    icon: "icon icon-orange",
+                    color: "#ffa500",
+                    onClick: (args) => { app.updateColor(args.source, args.item.color); }
+                },
+                {
+                    text: "Gri",
+                    icon: "icon icon-grey",
+                    color: "#808080",
+                    onClick: (args) => { app.updateColor(args.source, args.item.color); }
+                }, 
+                {
+                    text: "Açık Mavi",
+                    icon: "icon icon-cyan",
+                    color: "#0091EA",
+                    onClick: (args) => { app.updateColor(args.source, args.item.color); }
+                }
+
+            ]
+        })
+
+    });
+    calendar.init();
+
+    // Event Handlers
+    const app = {
+        elements: {
+            previous: document.querySelector("#previous"),
+            today: document.querySelector("#today"),
+            next: document.querySelector("#next"),
+        },
+        async updateColor(e, color) {
+            const params = {
+                color: color
+            };
+            try {
+                const response = await fetch(`/api/events/${e.id()}/color`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(params)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update color');
+                }
+
+                // Assuming the API call is successful, update the color of the event
+                e.data.color = color;
+                calendar.events.update(e);
+            } catch (error) {
+                console.error(error);
+            }
+        },
+        init() {
+            app.elements.previous.addEventListener("click", () => {
+                datePicker.select(datePicker.selectionDay.addMonths(-1));
+            });
+
+            app.elements.today.addEventListener("click", () => {
+                datePicker.select(DayPilot.Date.today());
+            });
+
+            app.elements.next.addEventListener("click", () => {
+                datePicker.select(datePicker.selectionDay.addMonths(1));
+            });
+
+            calendar.events.load("/api/events");
+        }
+    };
+    app.init();
+
+</script>
+
+
